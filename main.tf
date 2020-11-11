@@ -67,6 +67,25 @@ resource "aws_route_table_association" "dev_east_rta_public" {
   route_table_id = aws_route_table.dev_east_rt.id
 }
 
+resource "aws_eip" "eip" {
+  vpc = true
+}
+
+resource "aws_nat_gateway" "ngw" {
+  allocation_id = aws_eip.eip.id
+  subnet_id     = aws_subnet.dev_east_az1.id
+
+  tags = {
+    Name = "Dev East AZ1 Nat Gateway"
+  }
+}
+
+resource "aws_route" "nat_route" {
+  route_table_id         = aws_vpc.dev_east.default_route_table_id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.ngw.id
+}
+
 data "aws_ami" "amazon_linux_2" {
   owners      = ["amazon"]
   most_recent = true
@@ -109,5 +128,17 @@ resource "aws_instance" "bastion_host" {
 
   tags = {
     Name = "Terraform Bastion Host"
+  }
+}
+
+resource "aws_instance" "private_host" {
+  ami                    = data.aws_ami.amazon_linux_2.id
+  instance_type          = "t3.micro"
+  key_name               = "Terraform Dev East Key Pair"
+  subnet_id              = aws_subnet.dev_east_az2.id
+  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+
+  tags = {
+    Name = "Terraform Private Host"
   }
 }
