@@ -8,63 +8,63 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = var.region
 }
 
-resource "aws_vpc" "dev_east" {
-  cidr_block           = "1.0.0.0/24"
+resource "aws_vpc" "vpc" {
+  cidr_block           = var.vpc_cidr_block
   enable_dns_hostnames = true
   enable_dns_support   = true
 
   tags = {
-    Name = "Terraform Dev East"
+    Name = "terraform ${var.environment} vpc"
   }
 }
 
-resource "aws_internet_gateway" "dev_east_igw" {
-  vpc_id = aws_vpc.dev_east.id
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.vpc.id
 
   tags = {
-    Name = "Terraform Dev East Internet Gateway"
+    Name = "terraform ${var.environment} internet gateway"
   }
 }
 
-resource "aws_route_table" "dev_east_rt" {
-  vpc_id = aws_vpc.dev_east.id
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.dev_east_igw.id
+    gateway_id = aws_internet_gateway.igw.id
   }
 
   tags = {
-    Name = "Terraform Dev East Route Table"
+    Name = "terraform ${var.environment} public route table"
   }
 }
 
-resource "aws_subnet" "dev_east_az1" {
-  vpc_id            = aws_vpc.dev_east.id
-  cidr_block        = "1.0.0.0/28"
-  availability_zone = "us-east-1a"
+resource "aws_subnet" "public_subnet" {
+  vpc_id            = aws_vpc.vpc.id
+  cidr_block        = var.public_subnet_cidr_block
+  availability_zone = var.public_subnet_az
 
   tags = {
-    Name = "Terraform Dev East Public Subnet AZ1"
+    Name = "terraform ${var.environment} public subnet"
   }
 }
 
-resource "aws_subnet" "dev_east_az2" {
-  vpc_id            = aws_vpc.dev_east.id
-  cidr_block        = "1.0.0.240/28"
-  availability_zone = "us-east-1b"
+resource "aws_subnet" "private_subnet" {
+  vpc_id            = aws_vpc.vpc.id
+  cidr_block        = var.private_subnet_cidr_block
+  availability_zone = var.private_subnet_az
 
   tags = {
-    Name = "Terraform Dev East Private Subnet AZ2"
+    Name = "terraform ${var.environment} private subnet"
   }
 }
 
-resource "aws_route_table_association" "dev_east_rta_public" {
-  subnet_id      = aws_subnet.dev_east_az1.id
-  route_table_id = aws_route_table.dev_east_rt.id
+resource "aws_route_table_association" "public_rta" {
+  subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.public_rt.id
 }
 
 resource "aws_eip" "eip" {
@@ -73,15 +73,15 @@ resource "aws_eip" "eip" {
 
 resource "aws_nat_gateway" "ngw" {
   allocation_id = aws_eip.eip.id
-  subnet_id     = aws_subnet.dev_east_az1.id
+  subnet_id     = aws_subnet.public_subnet.id
 
   tags = {
-    Name = "Dev East AZ1 Nat Gateway"
+    Name = "terraform ${var.environment} nat gateway"
   }
 }
 
-resource "aws_route" "nat_route" {
-  route_table_id         = aws_vpc.dev_east.default_route_table_id
+resource "aws_route" "nat_rt" {
+  route_table_id         = aws_vpc.vpc.default_route_table_id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.ngw.id
 }
@@ -96,10 +96,10 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
-resource "aws_security_group" "bastion_sg" {
-  name        = "bastion-sg"
+resource "aws_security_group" "ssh_sg" {
+  name        = "ssh-sg"
   description = "Allows inbound SSH traffic"
-  vpc_id      = aws_vpc.dev_east.id
+  vpc_id      = aws_vpc.vpc.id
 
   ingress {
     description = "SSH from anywhere"
@@ -123,11 +123,11 @@ resource "aws_instance" "bastion_host" {
   instance_type               = "t3.micro"
   associate_public_ip_address = true
   key_name                    = "Terraform Dev East Key Pair"
-  subnet_id                   = aws_subnet.dev_east_az1.id
-  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
+  subnet_id                   = aws_subnet.public_subnet.id
+  vpc_security_group_ids      = [aws_security_group.ssh_sg.id]
 
   tags = {
-    Name = "Terraform Bastion Host"
+    Name = "terraform ${var.environment} bastion host"
   }
 }
 
@@ -135,10 +135,10 @@ resource "aws_instance" "private_host" {
   ami                    = data.aws_ami.amazon_linux_2.id
   instance_type          = "t3.micro"
   key_name               = "Terraform Dev East Key Pair"
-  subnet_id              = aws_subnet.dev_east_az2.id
-  vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+  subnet_id              = aws_subnet.private_subnet.id
+  vpc_security_group_ids = [aws_security_group.ssh_sg.id]
 
   tags = {
-    Name = "Terraform Private Host"
+    Name = "terraform ${var.environment} private host"
   }
 }

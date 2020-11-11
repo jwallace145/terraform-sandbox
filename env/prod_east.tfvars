@@ -1,0 +1,8 @@
+environment = "prod"
+region = "us-east-1"
+vpc_cidr_block = "1.0.1.0/24"
+public_subnet_cidr_block = "1.0.1.0/28"
+private_subnet_cidr_block = "1.0.1.16/28"
+public_subnet_az = "us-east-1a"
+private_subnet_az = "us-east-1b"
+key_pair = "Terraform Prod East Key Pair"
