@@ -42,11 +42,6 @@ resource "aws_route_table" "dev_east_rt" {
   }
 }
 
-resource "aws_main_route_table_association" "dev_east_rt_main" {
-  vpc_id         = aws_vpc.dev_east.id
-  route_table_id = aws_route_table.dev_east_rt.id
-}
-
 resource "aws_subnet" "dev_east_az1" {
   vpc_id            = aws_vpc.dev_east.id
   cidr_block        = "1.0.0.0/28"
@@ -65,6 +60,11 @@ resource "aws_subnet" "dev_east_az2" {
   tags = {
     Name = "Terraform Dev East Private Subnet AZ2"
   }
+}
+
+resource "aws_route_table_association" "dev_east_rta_public" {
+  subnet_id      = aws_subnet.dev_east_az1.id
+  route_table_id = aws_route_table.dev_east_rt.id
 }
 
 data "aws_ami" "amazon_linux_2" {
